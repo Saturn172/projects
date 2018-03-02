@@ -1,3 +1,4 @@
+#!/usr/bin/php
 <?php
 
 if($argc == 2){
@@ -26,9 +27,38 @@ while(!feof(STDIN)){
   //for($i=0; $i<$count; $i++) echo $word[$i]."\n";
 
   if($count > 4) exit(21);
-  if($count == 4);
 
-  //if(strtoupper($word[0]) == )
+  // 3 operands
+  if($count == 4){
+
+    // 6.4.3
+    if(strtoupper($word[0]) == "ADD");
+    else if(strtoupper($word[0]) == "SUB");
+    else if(strtoupper($word[0]) == "MUL");
+    else if(strtoupper($word[0]) == "IDIV");
+
+    else if(strtoupper($word[0]) == "LT");
+    else if(strtoupper($word[0]) == "GT");
+    else if(strtoupper($word[0]) == "EQ");
+
+    else if(strtoupper($word[0]) == "AND");
+    else if(strtoupper($word[0]) == "OR");
+    else if(strtoupper($word[0]) == "NOT");
+
+    else if(strtoupper($word[0]) == "STRI2INT");
+
+    // 6.4.5
+    else if(strtoupper($word[0]) == "CONCAT");
+    else if(strtoupper($word[0]) == "GETCHAR");
+    else if(strtoupper($word[0]) == "SETCHAR");
+
+    // 6.4.7
+    else if(strtoupper($word[0]) == "JUMPIFEQ");
+    else if(strtoupper($word[0]) == "JUMPIFNEQ");
+
+  }
+
+  else if($count == 3);
 }
 
 exit(0);
