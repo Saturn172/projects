@@ -236,11 +236,14 @@ xmlwriter_end_element($xml);
 xmlwriter_end_document($xml);
 
 // xml output
-//echo xmlwriter_output_memory($xml);
+echo xmlwriter_output_memory($xml);
 
 // stats output
 if(isset($opt["stats"])){
-  $file = fopen($opt["stats"], "w");
+  if(!($file = fopen($opt["stats"], "w"))){
+    fwrite(STDERR, "12: Failed to open a file!\n");
+    exit(12);
+  }
   // loc only
   if(isset($opt["loc"]) && !isset($opt["comments"])) fwrite($file, $order."\n");
   // comments only
