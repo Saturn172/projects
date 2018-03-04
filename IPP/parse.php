@@ -1,7 +1,7 @@
 #!/usr/bin/php5.6
 <?php
 
-$opt = getopt("a", array("help", "stats:", "loc", "comments"));
+$opt = getopt("", array("help", "stats:", "loc", "comments"));
 
 if(count($opt) != ($argc - 1)){
   fwrite(STDERR, "10: Invalid parameters! Try --help.\n");
