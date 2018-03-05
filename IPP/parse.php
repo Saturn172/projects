@@ -1,6 +1,18 @@
 #!/usr/bin/php5.6
 <?php
 
+$help = "
+Loads input code in IPPcode18 from stadard input, checks lexical and syntax correctness and prints XML representation of the code on standard output.
+
+Usage: ./parse.php [--help] [--stats=file] [--loc] [--comments]
+
+--help        shows this help (cannot combine with any other parameter)
+--stats=path  creates file specified by 'path' for purpose of following parameters:
+
+--loc         prints number of instructions in the input code
+--comments    prints number of comments in the input code
+";
+
 $opt = getopt("", array("help", "stats:", "loc", "comments"));
 
 if(count($opt) != ($argc - 1)){
@@ -13,16 +25,17 @@ if(isset($opt["help"])){
     fwrite(STDERR, "10: Invalid parameters! Try --help.\n");
     exit(10);
   } else {
-  fwrite(STDOUT, "This is some help.\n");
+  fwrite(STDOUT, $help."\n");
   exit(0);
   }
 }
 
 if((isset($opt["comments"]) || isset($opt["loc"])) && !isset($opt["stats"])){
-  fwrite(STDERR, "10: Invalid parameters! Try --help.\n");
+  fwrite(STDERR, "10: Missing parameter --stats! Try --help.\n");
   exit(10);
 }
 
+// returns type of argument and its proper value
 function getArg($arg){
   $type = "";
   $output = "";
@@ -84,11 +97,13 @@ function getArg($arg){
   return array($type, $output);
 }
 
+// check for header
 if(strtolower(trim(fgets(STDIN))) != ".ippcode18"){
   fwrite(STDERR, "21: .IPPcode18 header missing!\n");
   exit(21);
 }
 
+// xml init
 $xml = xmlwriter_open_memory();
 xmlwriter_set_indent($xml, 1);
 
@@ -99,9 +114,11 @@ xmlwriter_start_attribute($xml, 'language');
 xmlwriter_text($xml, 'IPPcode18');
 xmlwriter_end_attribute($xml);
 
+// init statics
 $order = 0;
 $comments = 0;
 
+// load a line from input
 while(!feof(STDIN)){
   $line = trim(preg_replace('/\s+/', ' ', fgets(STDIN)));
   $comment = strpos($line, "#");
