@@ -7,10 +7,12 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <getopt.h>
 
 #define MAX_SIZE 512000
 
 char buf[MAX_SIZE];
+char msg[MAX_SIZE];
 
 int create_socket(){
   int socket_number;

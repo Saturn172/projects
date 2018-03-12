@@ -1,0 +1,98 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[czech]{babel}
+\usepackage[latin2]{inputenc}
+\usepackage[IL2]{fontenc}
+\usepackage[left=2cm,text={17cm, 24cm},top=3cm]{geometry}
+\usepackage{times}
+
+\begin{document}
+
+\begin{titlepage}
+\begin{center}
+\Huge
+\textsc{Vysoké uèení technické v~Brnì\\[-1mm]
+\huge
+Fakulta informaèních technologií
+}
+
+\vspace{\stretch{0.382}}
+\LARGE
+
+Poèítaèové komunikace a sítì\,--\,1. projekt\\[-0.1cm]
+\Huge
+Klient-server pro získání informace o u¾ivatelích
+
+\vspace{\stretch{0.618}}
+\Large
+
+\today
+\hfill
+Daniel ©vub
+
+\end{center}
+
+\thispagestyle{empty}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Úvod}
+Tato dokumentace popisuje návrh a implementaci aplikaèního protokolu pro získání informace o u¾ivatelích serveru v rámci 1. projektu do pøedmìtu IPK.
+
+\section{TCP komunikace}
+Úkolem projektu bylo za vyu¾ití spolehlivého pøenosu pomocí protokolu TCP zajistit zpracování klientského dotazu serverem a jeho obslou¾ení.
+\bigskip\\
+\textbf{1. Vytvoøení socketù na obou stranách}\\
+\textbf{2. Vyhrazení portu pro pøenos} (na serverové stranì)\\
+\textbf{3. Navázání spojení} (handshake)\\
+\textbf{4. Pøíjem ¾ádosti serverem}\\
+\textbf{5. Vyøízení po¾adavku}\\
+\textbf{6. Ukonèení komunikace}\\
+
+\section{Princip protokolu}
+\subsection{Prùbìh komunikace}
+Po navázání komunikace (handshaku) za¹le klient serveru svùj po¾adavek jednoduché struktury popsané ní¾e.
+\bigskip\\
+Server podle tohoto po¾adavku zpracuje obsah souboru \emph{/etc/passwd} obsahující seznam u¾ivatelù serveru a ode¹le tato data zpìt klientovi, který získané informace postupnì vypí¹e na standardní výstup.
+\bigskip\\
+Zpracování souboru serverem je implementováno stavovým automatem, který pøechází mezi stavy na základì porovnání jednotlivých znakù souboru s po¾adavky klienta. (pøechod do patøièného módu, kontrola shodnosti loginu, výpis relevantních informací)
+
+\subsection{Struktura po¾adavku klienta}
+\emph{parametr} login
+\bigskip\\
+Tedy napø. \uv{n xsvubd00} nebo \uv{f rysavy}.\\
+V pøípadì parametru l mù¾e být dotaz dlouhý pouze jeden znak, tedy \uv{l}
+
+\subsection{Struktura odpovìdi serveru}
+Odpovìï serveru je ve formì prostého textu, klient tedy neprovádí ¾ádné dal¹í zpracování a obdr¾enou zprávu vypí¹e na výstup.
+\bigskip\\
+Zpráva (a tedy i výpis) je v¾dy zakonèena znakem nového øádku.
+\bigskip\\
+Neexistující login je validní dotaz s nulovým poètem øádkù na výstupu (tj. nalezeno nula øádkù). V takového pøípadì je tedy klientem vypsán pouze prázdný øádek.
+
+\section{Pøíklad èinnosti}
+\subsection{Parametr l}
+\textbf{./ipk-server -p 10001}\\
+\textbf{./ipk-client -h merlin.fit.vutbr.cz -p 10001 -l xsvubd00}
+\bigskip\\
+Klient posílá zprávu ve tvaru \uv{l xsvubd00}\\
+Server odpovídá zprávou ve tvaru \uv{xsvubd00\textbackslash n}
+
+\subsection{Parametr n}
+\textbf{./ipk-server -p 10001}\\
+\textbf{./ipk-client -h merlin.fit.vutbr.cz -p 10001 -n xsvubd00}
+\bigskip\\
+Klient posílá zprávu ve tvaru \uv{n xsvubd00}\\
+Server odpovídá zprávou ve tvaru \uv{Svub Daniel,FIT BIT 2r\textbackslash n}
+
+\subsection{Parametr f}
+\textbf{./ipk-server -p 10001}\\
+\textbf{./ipk-client -h merlin.fit.vutbr.cz -p 10001 -f xsvubd00}
+\bigskip\\
+Klient posílá zprávu ve tvaru \uv{f xsvubd00}\\
+Server odpovídá zprávou ve tvaru \uv{/homes/eva/xs/xsvubd00\textbackslash n}
+
+
+
+\end{document}

@@ -4,6 +4,7 @@ int main(int argc, char *argv[]){
 
   int port_number = -1;
 
+  // parsing arguments
   char opt;
   do{
     opt = getopt(argc, argv, "p:?");
@@ -11,8 +12,13 @@ int main(int argc, char *argv[]){
       port_number = atoi(argv[optind - 1]);
     }
     if(opt == '?'){
-      printf("Nápověda jak vostříž!\n");
-      return 1;
+      printf("\
+Listens to requests of ipk-client.\n\
+\n\
+Usage: ./ipk-server -p port\n\
+\n\
+-p number     port number\n");
+      exit(1);
     }
   }while(opt != -1);
 
@@ -21,8 +27,9 @@ int main(int argc, char *argv[]){
     exit(1);
   }
 
+  // creating socket
   int welcome_socket;
-  if(!(welcome_socket = create_socket())) return 1;
+  if(!(welcome_socket = create_socket())) exit(1);
 
   // setting server address
   struct sockaddr_in server_address;
@@ -37,7 +44,7 @@ int main(int argc, char *argv[]){
     exit(1);
   }
 
-  //listening
+  // listening
   if((listen(welcome_socket, 1)) < 0){
     perror("ERROR: listen");
     exit(1);
@@ -50,7 +57,10 @@ int main(int argc, char *argv[]){
 
   int comm_socket;
 
+  // communication
   while(1){
+
+    // accepting request
     while(1){
       comm_socket = accept(welcome_socket, (struct sockaddr*) &client_address, &clientlen);
       if(comm_socket < 0){
@@ -60,15 +70,15 @@ int main(int argc, char *argv[]){
       else if(comm_socket > 0) break;
     }
 
+    // opening file
     FILE *users = fopen("/etc/passwd", "r");
-    char msg[MAX_SIZE];
-    printf("Sending data.\n");
 
-    // clear data from previous request
+    // clearing data from previous request
     int created = 0;
     memset(buf, 0, MAX_SIZE);
     memset(msg, 0, MAX_SIZE);
 
+    // receiving request
     while(1){
       ssize_t bytesrx = recv(comm_socket, buf, MAX_SIZE, 0);
       if(bytesrx < 0){
@@ -77,6 +87,7 @@ int main(int argc, char *argv[]){
       }
       else if(bytesrx == 0) break;
 
+      // creating message (only once)
       if(!created){
         int i = 0;
 
@@ -131,8 +142,8 @@ int main(int argc, char *argv[]){
             }
           }
 
-        // n parameter
-        } else if(buf[0] == 'n'){
+        // n or f parameter
+        } else {
           int state = 0;
           int sector = 0;
           char c = '\0';
@@ -141,15 +152,26 @@ int main(int argc, char *argv[]){
             c = getc(users);
             switch(state){
               case 0:
+                // checking login
                 if(j < strlen(buf) && sector == 0){
+                  // matches
                   if(buf[j] == c){
                     j++;
+                  // wrong
                   } else {
+                    j = 2;
                     state = 2;
                   }
+                // next sector of line
                 } else if(c == ':'){
                   sector++;
-                  if(sector == 4) state = 1;
+                  // n or f
+                  if(buf[0] == 'n'){
+                    if(sector == 4) state = 1;
+                  } else {
+                    if(sector == 5) state = 1;
+                  }
+                // not match
                 } else {
                   if(sector == 0){
                     j = 2;
@@ -158,15 +180,18 @@ int main(int argc, char *argv[]){
                 }
                 break;
               case 1:
+                // end
                 if(c == ':'){
-                  sector++;
+                  j = 2;
                   state = 2;
+                // collecting data
                 } else {
                   msg[i] = c;
                   i++;
                 }
                 break;
               case 2:
+                // skipping
                 if(c == '\n') state = 0;
                 break;
             }
@@ -178,10 +203,11 @@ int main(int argc, char *argv[]){
         created = 1;
       }
 
+      // sending message
       send(comm_socket, msg, strlen(msg), 0);
     }
   }
 
   shutdown(welcome_socket, SHUT_RDWR);
-  return 0;
+  exit(0);
 }
