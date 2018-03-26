@@ -49,8 +49,20 @@ function getArg($arg){
       $output = $arg;
   // label
     } else {
-      $type = "label";
-      $output = $arg;
+      for($i = 0; $i < strlen($arg); $i++){
+        if(ctype_alnum($arg[$i]) || in_array($arg[$i], array('_', '-', '$', '&', '%', '*'))){
+          if($i == 0 && is_numeric($arg[$i])){
+            fwrite(STDERR, "21: Label '$arg' begins with a number!\n");
+            exit(21);
+          } else {
+            $type = "label";
+            $output = $arg;
+          }
+        } else {
+          fwrite(STDERR, "21: Invalid label '$arg'!\n");
+          exit(21);
+        }
+      }
     }
   // var
   } else if(in_array($mark, array("GF", "LF", "TF"))){
