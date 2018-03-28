@@ -24,24 +24,18 @@ if not ('language' in program.attrib and program.attrib['language'] == "IPPcode1
 exe = 0
 
 variable = {'GF': {}, 'TF': None, 'LF': None}
-
 LF = []
-stack = -1
 
 label = {}
-
 call = []
-ret = -1
-
 data = []
-S = -1
 
 for instruction in program:
   if instruction.attrib['opcode'] == "LABEL":
     if instruction[0].text in label:
       print("52: Multiple definitions of label '" + instruction[0].text + "'!", file=sys.stderr)
       exit(52)
-    label[instruction[0].text] = instruction
+    label[instruction[0].text] = int(instruction.attrib['order'])
 
 def GFvar(arg, init):
   global variable
@@ -77,7 +71,7 @@ def symb(arg):
 def execute(code):
   for instruction in code:
 
-    global exe, stack, LF, variable, label, call, ret, data, S
+    global exe, LF, variable, label, call, data
     exe += 1
 
     # 6.4.1
@@ -96,20 +90,18 @@ def execute(code):
       if variable["TF"] == None:
         print("55: Temporary frame undefined!", file=sys.stderr)
         exit(55)
-      stack += 1
       LF.append (variable["TF"])
-      variable["LF"] = LF[stack]
+      variable["LF"] = LF[len(LF) - 1]
       variable["TF"] = None
 
     # POPFRAME
     elif instruction.attrib['opcode'] == "POPFRAME":
-      if stack == -1:
+      if len(LF) == 0:
         print("55: Frame stack is empty!", file=sys.stderr)
         exit(55)
       variable["TF"] = LF.pop()
-      stack -= 1
-      if stack >= 0:
-        variable["LF"] = LF[stack]
+      if len(LF) > 0:
+        variable["LF"] = LF[len(LF) - 1]
       else:
         variable["LF"] = None
 
@@ -134,17 +126,15 @@ def execute(code):
       if not instruction[0].text in label:
         print("52: Inexistent label '" + instruction[0].text + "'!", file=sys.stderr)
         exit(52)
-      ret += 1
       call.append(int(instruction.attrib['order']))
-      execute(program[(int(label[instruction[0].text].attrib['order'])):])
+      execute(program[label[instruction[0].text]:])
       break
 
     # RETURN
     elif instruction.attrib['opcode'] == "RETURN":
-      if ret == -1:
+      if len(call) == 0:
         print("52: There is no place to return!", file=sys.stderr)
         exit(52)
-      ret -= 1
       execute(program[call.pop():])
       break
 
@@ -152,16 +142,14 @@ def execute(code):
     # PUSHS
     elif instruction.attrib['opcode'] == "PUSHS":
       symb1 = symb(instruction[0])
-      S += 1
       data.append(symb1)
 
     # POPS
     elif instruction.attrib['opcode'] == "POPS":
-      if S == -1:
+      if len(data) == 0:
         print("56: Data stack is empty!", file=sys.stderr)
         exit(56)
       var = GFvar(instruction[0], False)
-      S -= 1
       variable[var[0]][var[1]] = data.pop()
 
     # 6.4.3
@@ -420,16 +408,16 @@ def execute(code):
     elif instruction.attrib['opcode'] == "READ":
       var = GFvar(instruction[0], False)
       if instruction[1].text == "int":
-        val = input("--> ")
+        val = input()
         try:
           int(val)
         except:
           val = "0"
         variable[var[0]][var[1]] = ["int", int(val)]
       elif instruction[1].text == "string":
-        variable[var[0]][var[1]] = ["string", str(input("--> "))]
+        variable[var[0]][var[1]] = ["string", str(input())]
       elif instruction[1].text == "bool":
-        val = input("--> ")
+        val = input()
         if val.lower() == "true":
           variable[var[0]][var[1]] = ["bool", "true"]
         else:
@@ -534,7 +522,7 @@ def execute(code):
       if not instruction[0].text in label:
         print("52: Inexistent label '" + instruction[0].text + "'!", file=sys.stderr)
         exit(52)
-      execute(program[(int(label[instruction[0].text].attrib['order'])):])
+      execute(program[(label[instruction[0].text]):])
       break
 
     # JUMPIFEQ
@@ -548,7 +536,7 @@ def execute(code):
         print("53: Types in instruction 'JUMPIFEQ' not match!", file=sys.stderr)
         exit(53)
       if str(symb1[1]) == str(symb2[1]):
-        execute(program[(int(label[instruction[0].text].attrib['order'])):])
+        execute(program[(label[instruction[0].text]):])
         break
 
     # JUMPIFNEQ
@@ -562,7 +550,7 @@ def execute(code):
         print("53: Types in instruction 'JUMPIFEQ' not match!", file=sys.stderr)
         exit(53)
       if str(symb1[1]) != str(symb2[1]):
-        execute(program[(int(label[instruction[0].text].attrib['order'])):])
+        execute(program[(label[instruction[0].text]):])
         break
 
     # 6.4.8
@@ -580,8 +568,10 @@ def execute(code):
       print("# Instructions executed total: " + str(exe), file=sys.stderr)
       print("# GF: " + str(variable["GF"]), file=sys.stderr)
       print("# LF: " + str(variable["LF"]), file=sys.stderr)
+      print("# LF stack: " + str(LF), file=sys.stderr)
       print("# TF: " + str(variable["TF"]), file=sys.stderr)
       print("# Data stack: " + str(data), file=sys.stderr)
+      print("# Labels: " + str(label), file=sys.stderr)
       print("#", file=sys.stderr)
 
     else:

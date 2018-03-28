@@ -1,0 +1,150 @@
+<html>
+
+  <head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <title>IPP project - Results</title>
+  </head>
+
+  <body style="color: white; background-color: black; font-family: arial; text-align: center">
+    <h1 style="font-family: impact">IPP PROJECT</h1>
+    <h2 style="font-family: impact">test.php</h2>
+
+    <?php
+
+    $help = "
+Some helping shit.
+";
+
+    $opt = getopt("", array("help", "directory:", "recursive", "parse-script:", "int-script:"));
+
+    if(count($opt) != ($argc - 1)){
+      fwrite(STDERR, "10: Invalid parameters! Try --help.\n");
+      exit(10);
+    }
+
+    if(isset($opt["help"])){
+      if($argc > 2){
+        fwrite(STDERR, "10: Invalid parameters! Try --help.\n");
+        exit(10);
+      } else {
+        fwrite(STDOUT, $help."\n");
+        exit(0);
+      }
+    }
+
+    if(isset($opt["directory"])){
+      $path = $opt["directory"];
+    } else {
+      $path = ".";
+    }
+
+    if(isset($opt["recursive"])){
+      $rec = "";
+    } else {
+      $rec = "-maxdepth 1";
+    }
+
+    if(isset($opt["parse-script"])){
+      $parse = $opt["parse-script"];
+    } else {
+      $parse = "./parse.php";
+    }
+
+    if(isset($opt["int-script"])){
+      $int = $opt["int-script"];
+    } else {
+      $int = "./interpret.py";
+    }
+
+    $test = explode("\n", shell_exec("find $path/ -name '*.src' $rec 2>/dev/null"));
+    $N = count($test) - 1;
+
+    $errors = 0;
+    $failed = [];
+
+    for($i = 0; $i < $N; $i++){
+      // file for parse.php output
+      $temp1 = tmpfile();
+      $MD = stream_get_meta_data($temp1);
+      $source = $MD['uri'];
+
+      // file for interpret.py output
+      $temp2 = tmpfile();
+      $MD = stream_get_meta_data($temp2);
+      $stdout = $MD['uri'];
+
+      // interpret.py input
+      if(($in = @fopen(substr($test[$i], 0, -3)."in", "r")) === false) $stdin = "";
+      else {
+        $stdin = fread($in, filesize(substr($test[$i], 0, -3)."in"));
+        fclose($in);
+      }
+
+      // interpret.py sample output
+      if(file_exists(substr($test[$i], 0, -3)."out") === false){
+        $tmp3 = tmpfile();
+        $MD = stream_get_meta_data($temp2);
+        $sample = $MD['uri'];
+      } else {
+        $sample = substr($test[$i], 0, -3)."out";
+      }
+
+      // proper return value
+      if(($rc = @fopen(substr($test[$i], 0, -3)."rc", "r")) === false) $retval = 0;
+      else {
+        $retval = fgets($rc);
+        fclose($rc);
+      }
+
+      // execute parse.php, store XML
+      exec("cat '$test[$i]' | php5.6 '$parse' 2>/dev/null", $shell, $retcode);
+      fwrite($temp1, implode("\n", $shell)."\n");
+
+      // clear shell output
+      $shell = [];
+
+      // check retcode after parse.php
+      if($retcode == 0){
+
+        // execute interpret.py, store output
+        exec("echo '$stdin' | python3.6 '$int' --source='$source' 2>/dev/null", $shell, $retcode);
+        fwrite($temp2, implode("\n", $shell)."\n");
+
+        // diff
+        if($retcode != $retval || shell_exec("diff '$stdout' '$sample'") != ""){
+          $errors++;
+          $failed[count($failed)] = $test[$i];
+        }
+
+      // parse.php havent returned anything
+      } else {
+        if($retcode != $retval){
+          $errors++;
+          $failed[count($failed)] = substr($test[$i], 0, -4);
+        }
+      }
+    }
+
+    if($N == 0) echo "<span style='color: red'><b>No tests found!</b></span>";
+    else {
+      echo "<h3 style='text-decoration: underline'>RESULTS</h3>";
+      echo "<table align='center'>";
+      echo "<tr><td width='150'>Tests executed:</td><td>$N</td></tr>";
+      echo "<tr><td>Tests failed:</td><td style='color: ";
+      if($errors == 0) echo "green"; else echo "red";
+      echo "'><b>$errors</b></td></tr>";
+      echo "</table>";
+      if($errors == 0) echo "<h4>All tests succeeded!</h4>";
+      else {
+        echo "<h3 style='text-decoration: underline'>LIST OF FAILED TESTS</h3>";
+        for($i = 0; $i < count($failed); $i++){
+          echo $failed[$i]."<br>";
+        }
+      }
+    }
+
+    ?>
+
+  </body>
+
+</html>
