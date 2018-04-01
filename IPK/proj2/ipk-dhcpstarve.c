@@ -357,6 +357,25 @@ fill_dhcp_discovery_options(dhcp_t *dhcp)
     return len;
 }
 
+static int
+fill_dhcp_request_options(dhcp_t *dhcp)
+{
+    int len = 0;
+    u_int32_t req_ip;
+    u_int8_t parameter_req_list[] = {MESSAGE_TYPE_REQ_SUBNET_MASK, MESSAGE_TYPE_ROUTER, MESSAGE_TYPE_DNS, MESSAGE_TYPE_DOMAIN_NAME};
+    u_int8_t option;
+
+    option = DHCP_OPTION_REQUEST;
+    len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_DHCP, &option, sizeof(option));
+    req_ip = ip;
+    len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_REQ_IP, (u_int8_t *)&req_ip, sizeof(req_ip));
+    len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_PARAMETER_REQ_LIST, (u_int8_t *)&parameter_req_list, sizeof(parameter_req_list));
+    option = 0;
+    len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_END, &option, sizeof(option));
+
+    return len;
+}
+
 /*
  * Send DHCP DISCOVERY packet
  */
@@ -376,6 +395,33 @@ dhcp_discovery(u_int8_t *mac)
     dhcp = (dhcp_t *)(((char *)udp_header) + sizeof(struct udphdr));
 
     len = fill_dhcp_discovery_options(dhcp);
+    dhcp_output(dhcp, mac, &len);
+    udp_output(udp_header, &len);
+    ip_output(ip_header, &len);
+    ether_output(packet, mac, len);
+
+    return 0;
+}
+
+/*
+ * Send DHCP REQUEST packet
+ */
+static int
+dhcp_request(u_int8_t *mac)
+{
+    int len = 0;
+    u_char packet[4096];
+    struct udphdr *udp_header;
+    struct ip *ip_header;
+    dhcp_t *dhcp;
+
+    PRINT(VERBOSE_LEVEL_INFO, "Sending DHCP_REQUEST");
+
+    ip_header = (struct ip *)(packet + sizeof(struct ether_header));
+    udp_header = (struct udphdr *)(((char *)ip_header) + sizeof(struct ip));
+    dhcp = (dhcp_t *)(((char *)udp_header) + sizeof(struct udphdr));
+
+    len = fill_dhcp_request_options(dhcp);
     dhcp_output(dhcp, mac, &len);
     udp_output(udp_header, &len);
     ip_output(ip_header, &len);
@@ -422,7 +468,8 @@ main(int argc, char *argv[])
     if (result)
     {
         PRINT(VERBOSE_LEVEL_ERROR, "Couldn't send DHCP DISCOVERY on device %s: %s", dev, errbuf);
-        goto done;
+        pcap_close(pcap_handle);
+        return result;
     }
 
     ip = 0;
@@ -431,8 +478,15 @@ main(int argc, char *argv[])
     pcap_loop(pcap_handle, -1, ether_input, NULL);
     printf("Got IP %u.%u.%u.%u\n", ip >> 24, ((ip << 8) >> 24), (ip << 16) >> 24, (ip << 24) >> 24);
 
-done:
-    pcap_close(pcap_handle);
+    /* Send DHCP DISCOVERY packet */
+    result = dhcp_request(mac);
+    if (result)
+    {
+        PRINT(VERBOSE_LEVEL_ERROR, "Couldn't send DHCP REQUEST on device %s: %s", dev, errbuf);
+        pcap_close(pcap_handle);
+        return result;
+    }
 
+    pcap_close(pcap_handle);
     return result;
 }
