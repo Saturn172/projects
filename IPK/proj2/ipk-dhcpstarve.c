@@ -59,6 +59,7 @@ typedef struct dhcp
 #define MESSAGE_TYPE_DNS                    6
 #define MESSAGE_TYPE_DOMAIN_NAME            15
 #define MESSAGE_TYPE_REQ_IP                 50
+#define MESSAGE_TYPE_SERVER_ID              54
 #define MESSAGE_TYPE_DHCP                   53
 #define MESSAGE_TYPE_PARAMETER_REQ_LIST     55
 #define MESSAGE_TYPE_END                    255
@@ -94,6 +95,8 @@ do{                                                                     \
 verbose_level_t program_verbose_level = VERBOSE_LEVEL_DEBUG;
 pcap_t *pcap_handle;
 u_int32_t ip;
+u_int8_t mac[6];
+u_int32_t server;
 
 /*
  * Print the Given ethernet packet in hexa format - Just for debugging
@@ -199,7 +202,9 @@ dhcp_input(dhcp_t *dhcp)
         return;
 
     /* Get the IP address given by the server */
-    ip = ntohl(dhcp->yiaddr);
+    ip = dhcp->yiaddr;
+    //ntohl();
+    //server = dhcp->bp_options
 
     /* We are done - lets break the loop */
     pcap_breakloop(pcap_handle);
@@ -225,6 +230,7 @@ ip_input(struct ip * ip_packet)
     /* Care only about UDP - since DHCP sits over UDP */
     if (ip_packet->ip_p == IPPROTO_UDP)
         udp_input((struct udphdr *)((char *)ip_packet + sizeof(struct ip)));
+    server = ip_packet->ip_src.s_addr;
 }
 
 /*
@@ -235,12 +241,15 @@ ether_input(u_char *args, const struct pcap_pkthdr *header, const u_char *frame)
 {
     struct ether_header *eframe = (struct ether_header *)frame;
 
-    PRINT(VERBOSE_LEVEL_DEBUG, "Received a frame with length of [%d]", header->len);
+    //PRINT(VERBOSE_LEVEL_DEBUG, "Received a frame with length of [%d]", header->len);
+    PRINT(VERBOSE_LEVEL_INFO, "Received a frame with MAC : %02X:%02X:%02X:%02X:%02X:%02X", eframe->ether_dhost[0], eframe->ether_dhost[1], eframe->ether_dhost[2], eframe->ether_dhost[3], eframe->ether_dhost[4], eframe->ether_dhost[5]);
 
-    if (program_verbose_level == VERBOSE_LEVEL_DEBUG)
-        print_packet(frame, header->len);
+    //if (program_verbose_level == VERBOSE_LEVEL_DEBUG) print_packet(frame, header->len);
+    
+    //if (memcmp(eframe->ether_dhost, mac, ETHER_ADDR_LEN) == 0) printf("\n\n\nROVNÁ SE!!!\n\n\n");
+    //u_int8_t macovka[6]; for(int i=0; i<6; i++) macovka[i] = 255;
 
-    if (htons(eframe->ether_type) == ETHERTYPE_IP)
+    if (!memcmp(eframe->ether_dhost, mac, ETHER_ADDR_LEN) && htons(eframe->ether_type) == ETHERTYPE_IP)
         ip_input((struct ip *)(frame + sizeof(struct ether_header)));
 }
 
@@ -361,15 +370,19 @@ static int
 fill_dhcp_request_options(dhcp_t *dhcp)
 {
     int len = 0;
-    u_int32_t req_ip;
     u_int8_t parameter_req_list[] = {MESSAGE_TYPE_REQ_SUBNET_MASK, MESSAGE_TYPE_ROUTER, MESSAGE_TYPE_DNS, MESSAGE_TYPE_DOMAIN_NAME};
     u_int8_t option;
-
+    //u_int32_t server = htonl(0xc0a80001);
+    
     option = DHCP_OPTION_REQUEST;
     len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_DHCP, &option, sizeof(option));
-    req_ip = ip;
-    len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_REQ_IP, (u_int8_t *)&req_ip, sizeof(req_ip));
+    len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_REQ_IP, (u_int8_t *)&ip, sizeof(ip));
+    len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_SERVER_ID, (u_int8_t *)&server, sizeof(server));
     len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_PARAMETER_REQ_LIST, (u_int8_t *)&parameter_req_list, sizeof(parameter_req_list));
+    
+    printf("Requested IP %u.%u.%u.%u\n", ip >> 24, ((ip << 8) >> 24), (ip << 16) >> 24, (ip << 24) >> 24);
+    printf("Server IP %u.%u.%u.%u\n", server >> 24, ((server << 8) >> 24), (server << 16) >> 24, (server << 24) >> 24);
+   
     option = 0;
     len += fill_dhcp_option(&dhcp->bp_options[len], MESSAGE_TYPE_END, &option, sizeof(option));
 
@@ -436,7 +449,6 @@ main(int argc, char *argv[])
     int result;
     char errbuf[PCAP_ERRBUF_SIZE];
     char *dev;
-    u_int8_t mac[6];
 
     if (argc < 2 || (strcmp(argv[1], "-h") == 0))
     {
@@ -452,6 +464,7 @@ main(int argc, char *argv[])
         PRINT(VERBOSE_LEVEL_ERROR, "Unable to get MAC address for %s", dev);
         return -1;
     }
+    mac[5] = 25; // ZMĚNÍM MAC, JAK SE MI CHCE
     PRINT(VERBOSE_LEVEL_INFO, "%s MAC : %02X:%02X:%02X:%02X:%02X:%02X",
           dev, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
@@ -476,9 +489,11 @@ main(int argc, char *argv[])
     PRINT(VERBOSE_LEVEL_INFO, "Waiting for DHCP_OFFER");
     /* Listen till the DHCP OFFER comes */
     pcap_loop(pcap_handle, -1, ether_input, NULL);
+    //ip = htonl(0xc0a80008); // TIPOVANÁ IP
+    //ip = htonl(0x0900a8c0);
     printf("Got IP %u.%u.%u.%u\n", ip >> 24, ((ip << 8) >> 24), (ip << 16) >> 24, (ip << 24) >> 24);
 
-    /* Send DHCP DISCOVERY packet */
+    /* Send DHCP REQUEST packet */
     result = dhcp_request(mac);
     if (result)
     {
