@@ -1,0 +1,117 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[czech]{babel}
+\usepackage[latin2]{inputenc}
+\usepackage[IL2]{fontenc}
+\usepackage[left=2cm,text={17cm, 24cm},top=3cm]{geometry}
+\usepackage{times}
+\usepackage{graphics}
+
+\begin{document}
+
+\begin{titlepage}
+\begin{center}
+\Huge
+\textsc{Vysoké uèení technické v~Brnì\\[-1mm]
+\huge
+Fakulta informaèních technologií
+}
+
+\vspace{\stretch{0.382}}
+\LARGE
+
+Poèítaèové komunikace a sítì\,--\,2. projekt\\[-0.1cm]
+\Huge
+DHCP Starvation útok
+
+\vspace{\stretch{0.618}}
+\Large
+
+\today
+\hfill
+Daniel ©vub
+
+\end{center}
+
+\thispagestyle{empty}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Úvod}
+Tato dokumentace popisuje princip útoku typu \uv{starvation} na server DHCP a jeho implementaci v~jazyce C.
+
+\section{Protokol DHCP}
+\textbf{DHCP} \emph{(Dynamic Host Configuration Protocol)} je aplikaèní protokol zaji¹»ující automatickou konfiguraci IP adresy, masky sítì, výchozí brány, adres DNS serverù a dal¹ích parametrù v¹ech uzlù v~síti, ani¾ by bylo tøeba tyto uzly po jednom ruènì konfigurovat.
+
+\subsection{Princip protokolu}
+
+DHCP komunikace probíhá ve ètyøech fázích:\bigskip\\
+\textbf{1. DHCP\_DISCOVER}\,--\,Klient vy¹le do sítì broadcast (v¹esmìrové vysílání), ve kterém ¾ádá (kohokoli) o~pøidìlení IP adresy.\smallskip\\
+\textbf{2. DHCP\_OFFER}\,--\,Nachází-li v~síti DHCP server, odpoví na tuto ¾ádost klientovi nabídkou IP adresy z~pøedem daného rozsahu (tzv. poolu) a dal¹ích parametrù. Zpráva je na fyzické vrstvì unicastem (je zaslána pøímo na MAC adresu klienta).\smallskip\\
+\textbf{3. DHCP\_REQUEST}\,--\,Klient vybere z~pøíchozích DHCP nabídek (serverù mù¾e být v~síti teoreticky více) a vybranému serveru ode¹le ¾ádost o~pøidìlení nabídnuté adresy. Opìt jde o~broadcast.\smallskip\\
+\textbf{4. DHCP\_ACK}\,--\,Server potvrdí klientovi pøidìlení adresy.
+\bigskip\\
+\scalebox{0.8}{\includegraphics{./dhcp-process}}
+
+\section{Útok na DHCP server}
+
+\subsection{DHCP Starvation}
+Cílem útoku je vyèerpat adresní pool DHCP serveru fale¹nými ¾ádostmi o~pøidìlení adresy, následkem èeho¾ tento server není dále schopen pøidìlovat klientùm adresy. Obvykle pøedchází tzv. \uv{DHCP spoofingu}.
+
+\subsection{DHCP Spoofing}
+Útoèník spustí v~síti \uv{rogue server}, který pøidìlí klientùm adresy namísto legitimního a nastaví v¹em sám sebe jako výchozí bránu, naèe¾ prochází pøes tento server ve¹kerá komunikace.
+
+\subsection{Obvyklý scénáø}
+Pøi typickém útoku tedy útoèník nejprve znefunkèní legitimní DHCP server a poté se v~síti vydává nejen za tento server, ale i za výchozí bránu. Komunikaci ze v¹ech uzlù následnì pøeposílá na legitimní router, tak¾e obìti obvykle nepoznají rozdíl. Ve¹kerá jejich komunikace je ov¹em odposlouchávána.
+\bigskip\\
+Proti tomuto nebezpeèí existuje úèinná obrana\,--\,tzv. \uv{DHCP snooping}. Aplikuje se na switchi a spoèívá v~oznaèení urèitého rozhraní (toho, k~nìmu¾ je pøipojen legitimní server) jako bezpeèného, zatímco na v¹ech ostatních jsou DHCP\_OFFER zprávy ignorovány.
+
+\section{Implementace útoku}
+Aplikace náhodnì generuje ètvrtý a¾ ¹estý byte fyzické adresy (první tøi identifikují výrobce rozhraní a nemohou být náhodné, jeliko¾ by je server zahodil jako nedùvìryhodné) a s~touto \uv{fake} adresou v~poli source MAC adress ethernetového rámce odesílá DHCP\_DISCOVER.
+\bigskip\\
+Server zprávu zpracuje a po¹le na fale¹nou adresu DHCP\_OFFER, na fyzické vrstvì jako unicastový rámec (viz sekce 2.1).
+\bigskip\\
+Aplikace tuto odpovìï musí pøijmout. Z~toho dùvodu musí být na rozhraní, na kterém pracuje, nastaven tzv. promiskuitní mód (interface nezahazuje rámce urèeny pro jiné MAC adresy). Jestli¾e aplikace zachytí pøíchozí komunikaci na tuto neexistující adresu, rozbalí ji a vyète z~ní nabídnutou adresu a adresu serveru, ze kterého nabídka pochází. ®ádné dal¹í údaje ji nezajímají. Pokud nezahchytí ¾ádný DHCP\_OFFER, za 5 sekund ode¹le dal¹í DHCP\_DISCOVER.
+\bigskip\\
+Následnì je serveru odeslán DHCP\_REQUEST, v~nìm¾ jsou obsa¾eny informace získané z~DHCP\_OFFERu. Server si poté ulo¾í fake adresu do seznamu pøidìlených adres, tato imaginární adresa tak nyní blokuje adresu v~poolu, kterou by za bì¾ných okolností mohl server pøidìlit skuteènému klientovi.
+\bigskip\\
+Vý¹e uvedené kroky jsou opakovány v~nekoneèném cyklu, tak¾e DHCP server zanedlouho vyèerpá v¹echny dostupné adresy a ¾ádný klient u¾ adresu nedostane.
+
+\section{Demonstrace èinnosti}
+\scalebox{0.8}{\includegraphics{./screens/dhcp-nastaveni}}
+\smallskip\\
+Aplikace byla testována na notebooku s~operaèním systémem Linux pøipojeném pøes ethernetové rozhraní k~domácímu routeru.
+\smallskip\\
+V~síti se nevyskytovala ¾ádná dal¹í zaøízení.
+\smallskip\\
+Adresace sítì byla $192.168.1.0/24$, router má adresu $192.168.1.1$ a integrovaný DHCP server pøidìluje adresy z~poolu $192.168.1.10$\,--\,$192.168.1.15$, jak lze vidìt na screenshotu vý¹e.
+\bigskip\\
+\scalebox{0.8}{\includegraphics{./screens/dhcp-prideleni-pred}}
+\smallskip\\
+DHCP server ihned po pøipojení pøidìlil fyzickému rozhraní notebooku adresu náhodnì adresu $192.168.1.11$
+\smallskip\\
+Ostatních pìt adres zùstává volných.
+\bigskip\\
+\scalebox{0.8}{\includegraphics{./screens/dhcp-starve}}
+\smallskip\\
+Nastavíme interface notebooku do promiskuitního módu a spustíme aplikaci.
+\smallskip\\
+Jak lze vyèíst z~demonstraèního screenshotu, aplikace vypotøebuje v¹ech pìt volných adres z~poolu a dále ji¾ nepøicházejí ¾ádné DHCP\_OFFERy\,--\,pool je prázdný a router nemá ¾ádné adresy, které by pøidìlil.
+\smallskip\\
+Útok se zdaøil.
+\bigskip\\
+\scalebox{0.8}{\includegraphics{./screens/dhcp-prideleni-po}}
+\smallskip\\
+Mù¾eme se pøesvìdèit, ¾e router pøidìlil v¹echny dostupné adresy fale¹ným MAC adresám vygenerovaným aplikací.
+
+\section{Zdroje}
+\begin{itemize}
+\item{DHCP message format, \emph{https://www.slideshare.net/Netmanias/20131004dhcp-message-format}\\(struktura DHCP zpráv)}
+\item{Carnegie Mellon University: in\_chsum.c,\\\emph{http://www.cs.cmu.edu/afs/cs/academic/class/15213-f00/unpv12e/libfree/in\_cksum.c}\\(výpoèet kontrolního souètu)}
+\item{A~simple DHCP client, \emph{https://github.com/samueldotj/dhcp-client}\\(zpùsob práce s~DHCP pakety)}
+\item{C - listening using pcap with timeout, \emph{https://stackoverflow.com/questions/4583386/listening-using-pcap-with-timeout/13749514}\\(èasový limit pøi èekání na DHCP\_OFFER)}
+\item{CISCO Ebook: Chapter 6, \emph{http://ciscodocuments.blogspot.cz/2011/05/chapter-06-securing-campus\_2384.html}\\(grafické znázornìní DHCP komunikace v~dokumentaci)}
+\end{itemize}
+
+\end{document}

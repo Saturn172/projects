@@ -133,8 +133,8 @@ def execute(code):
     # RETURN
     elif instruction.attrib['opcode'] == "RETURN":
       if len(call) == 0:
-        print("52: There is no place to return!", file=sys.stderr)
-        exit(52)
+        print("56: There is no place to return!", file=sys.stderr)
+        exit(56)
       execute(program[call.pop():])
       break
 
@@ -579,3 +579,4 @@ def execute(code):
       exit(32)
 
 execute(program)
+exit(0)
