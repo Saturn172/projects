@@ -111,7 +111,7 @@ def execute(code):
       if var[0] == "GF":
         variable["GF"][var[1]] = None
       elif var[0] == "LF":
-        LF[var[1]] = None
+        variable["LF"][var[1]] = None
       elif var[0] == "TF":
         if variable["TF"] == None:
           print("55: Temporary frame undefined!", file=sys.stderr)

@@ -153,6 +153,6 @@ echo "<html>";
     }
 
   echo "</body>";
-echo "</html>";
+echo "</html>\n";
 
 ?>
