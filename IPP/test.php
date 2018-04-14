@@ -72,7 +72,7 @@ for($i = 0; $i < $N; $i++){
   $stdout = $MD['uri'];
 
   // interpret.py input
-  if(($in = @fopen(substr($test[$i], 0, -3)."in", "r")) === false) $stdin = "";
+  if(($in = @fopen(substr($test[$i], 0, -3)."in", "r")) === false || filesize(substr($test[$i], 0, -3)."in") == 0) $stdin = "";
   else {
     $stdin = fread($in, filesize(substr($test[$i], 0, -3)."in"));
     fclose($in);
@@ -80,8 +80,8 @@ for($i = 0; $i < $N; $i++){
 
   // interpret.py sample output
   if(file_exists(substr($test[$i], 0, -3)."out") === false){
-    $tmp3 = tmpfile();
-    $MD = stream_get_meta_data($temp2);
+    $temp3 = tmpfile();
+    $MD = stream_get_meta_data($temp3);
     $sample = $MD['uri'];
   } else {
     $sample = substr($test[$i], 0, -3)."out";
@@ -105,13 +105,18 @@ for($i = 0; $i < $N; $i++){
   if($retcode == 0){
 
     // execute interpret.py, store output
-    exec("echo '$stdin' | python3.6 '$int' --source='$source' 2>/dev/null", $shell, $retcode);
-    fwrite($temp2, implode("\n", $shell)."\n");
+    exec("echo '$stdin' | python3.6 '$int' --source='$source' 1>$stdout 2>/dev/null", $shell, $retcode);
+    //if(!count($shell)) $write = NULL;
+    //else $write = implode("\n", $shell)."\n";
+    //echo "'".$write."'<br>";
+    //fwrite($temp2, implode("\n", $shell)."\n");
+    //if(count($shell)) fwrite($temp2, implode("\n", $shell)."\n");
+    //fwrite($temp2, $write);
 
     // diff
     if($retcode != $retval || shell_exec("diff '$stdout' '$sample'") != ""){
       $errors++;
-      $failed[count($failed)] = $test[$i];
+      $failed[count($failed)] = substr($test[$i], 0, -4);
     }
 
   // parse.php havent returned anything

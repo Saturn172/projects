@@ -8,7 +8,11 @@ parser = argparse.ArgumentParser(description='Loads XML representation of IPPcod
 parser.add_argument('--source', required=True, help="input file with XML representation of IPPcode18 program")
 args = parser.parse_args()
 
-xml = ET.parse(vars(args)['source'])
+try:
+  xml = ET.parse(vars(args)['source'])
+except:
+  print("31: Not a XML file!", file=sys.stderr)
+  exit(31)
 program = xml.getroot()
 program[:] = sorted(program, key=lambda child: int(child.get('order')))
 
@@ -30,6 +34,7 @@ label = {}
 call = []
 data = []
 
+# fill a database of labels
 for instruction in program:
   if instruction.attrib['opcode'] == "LABEL":
     if instruction[0].text in label:
@@ -37,10 +42,15 @@ for instruction in program:
       exit(52)
     label[instruction[0].text] = int(instruction.attrib['order'])
 
-def GFvar(arg, init):
+# verify an existence of variable
+def Fvar(arg, init):
   global variable
   src = arg.text.split('@')
-  # search in global frame for variable
+  # check for frame existence
+  if variable[src[0]] == None:
+    print("55: Frame '" + src[0] + "' undefined!", file=sys.stderr)
+    exit(55)
+  # search in frame for variable
   if src[1] in variable[src[0]]:
     if init == False:
       return(src)
@@ -58,7 +68,7 @@ def GFvar(arg, init):
 def symb(arg):
   # source is a variable
   if arg.attrib['type'] == "var":
-    return GFvar(arg, True)
+    return Fvar(arg, True)
   # source is a constant
   else:
     value = arg.text
@@ -77,7 +87,7 @@ def execute(code):
     # 6.4.1
     # MOVE
     if instruction.attrib['opcode'] == "MOVE":
-      var = instruction[0].text.split('@')
+      var = Fvar(instruction[0], False)
       # store into variable
       variable[var[0]][var[1]] = symb(instruction[1])
 
@@ -111,6 +121,9 @@ def execute(code):
       if var[0] == "GF":
         variable["GF"][var[1]] = None
       elif var[0] == "LF":
+        if variable["LF"] == None:
+          print("55: No local frames defined!", file=sys.stderr)
+          exit(55)
         variable["LF"][var[1]] = None
       elif var[0] == "TF":
         if variable["TF"] == None:
@@ -149,13 +162,13 @@ def execute(code):
       if len(data) == 0:
         print("56: Data stack is empty!", file=sys.stderr)
         exit(56)
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       variable[var[0]][var[1]] = data.pop()
 
     # 6.4.3
     # ADD
     elif instruction.attrib['opcode'] == "ADD":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       symb2 = symb(instruction[2])
       if symb1[0] != "int" or symb2[0] != "int":
@@ -171,7 +184,7 @@ def execute(code):
 
     # SUB
     elif instruction.attrib['opcode'] == "SUB":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       symb2 = symb(instruction[2])
       if symb1[0] != "int" or symb2[0] != "int":
@@ -187,7 +200,7 @@ def execute(code):
 
     # MUL
     elif instruction.attrib['opcode'] == "MUL":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       symb2 = symb(instruction[2])
       if symb1[0] != "int" or symb2[0] != "int":
@@ -203,7 +216,7 @@ def execute(code):
 
     # IDIV
     elif instruction.attrib['opcode'] == "IDIV":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       symb2 = symb(instruction[2])
       if symb1[0] != "int" or symb2[0] != "int":
@@ -222,7 +235,7 @@ def execute(code):
 
     # LT
     elif instruction.attrib['opcode'] == "LT":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       symb2 = symb(instruction[2])
       if symb1[0] == symb2[0]:
@@ -258,7 +271,7 @@ def execute(code):
 
     # GT
     elif instruction.attrib['opcode'] == "GT":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       symb2 = symb(instruction[2])
       if symb1[0] == symb2[0]:
@@ -294,7 +307,7 @@ def execute(code):
 
     # EQ
     elif instruction.attrib['opcode'] == "EQ":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       symb2 = symb(instruction[2])
       if symb1[0] == symb2[0]:
@@ -330,7 +343,7 @@ def execute(code):
 
     # AND
     elif instruction.attrib['opcode'] == "AND":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       symb2 = symb(instruction[2])
       if symb1[0] == "bool" and symb2[0] == "bool":
@@ -344,7 +357,7 @@ def execute(code):
 
     # OR
     elif instruction.attrib['opcode'] == "OR":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       symb2 = symb(instruction[2])
       if symb1[0] == "bool" and symb2[0] == "bool":
@@ -358,7 +371,7 @@ def execute(code):
 
     # NOT
     elif instruction.attrib['opcode'] == "NOT":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       if symb1[0] == "bool":
         if symb1[1] == "true":
@@ -371,7 +384,7 @@ def execute(code):
 
     # INT2CHAR
     elif instruction.attrib['opcode'] == "INT2CHAR":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       if symb1[0] == "int":
         try:
@@ -386,7 +399,7 @@ def execute(code):
 
     # STRI2INT
     elif instruction.attrib['opcode'] == "STRI2INT":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       symb2 = symb(instruction[2])
       if symb1[0] == "string" and symb2[0] == "int":
@@ -406,7 +419,7 @@ def execute(code):
     # 6.4.4
     # READ
     elif instruction.attrib['opcode'] == "READ":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       if instruction[1].text == "int":
         val = input()
         try:
@@ -430,7 +443,7 @@ def execute(code):
     elif instruction.attrib['opcode'] == "WRITE":
       # variable
       if instruction[0].attrib['type'] == "var":
-        print(GFvar(instruction[0], True)[1])
+        print(Fvar(instruction[0], True)[1])
       # string
       elif instruction[0].attrib['type'] == "string":
         state = 0
@@ -460,7 +473,7 @@ def execute(code):
     # 6.4.5
     # CONCAT
     elif instruction.attrib['opcode'] == "CONCAT":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       symb2 = symb(instruction[2])
       if symb1[0] != "string" or symb2[0] != "string":
@@ -470,7 +483,7 @@ def execute(code):
 
     # STRLEN
     elif instruction.attrib['opcode'] == "STRLEN":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       if symb1[0] != "string":
         print("53: Operand for instruction 'CONCAT' must be string!", file=sys.stderr)
@@ -479,7 +492,7 @@ def execute(code):
 
     # GETCHAR
     elif instruction.attrib['opcode'] == "GETCHAR":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       symb2 = symb(instruction[2])
       if symb1[0] == "string" and symb2[0] == "int":
@@ -493,12 +506,15 @@ def execute(code):
 
     # SETCHAR
     elif instruction.attrib['opcode'] == "SETCHAR":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       symb2 = symb(instruction[2])
       if symb1[0] == "int" and symb2[0] == "string" and variable[var[0]][var[1]][0] == "string":
         if int(symb1[1]) >= len(variable[var[0]][var[1]][1]):
           print("58: Invalid index '" + str(symb1[1]) + "' in string '" + str(variable[var[0]][var[1]][1]) + "'!", file=sys.stderr)
+          exit(58)
+        if len(symb2[1]) == 0:
+          print("58: Empty replacing string!", file=sys.stderr)
           exit(58)
         variable[var[0]][var[1]][1] = variable[var[0]][var[1]][1][:int(symb1[1])] + symb2[1][0] + variable[var[0]][var[1]][1][(int(symb1[1]) + 1):]
       else:
@@ -508,7 +524,7 @@ def execute(code):
     # 6.4.6
     # TYPE
     elif instruction.attrib['opcode'] == "TYPE":
-      var = GFvar(instruction[0], False)
+      var = Fvar(instruction[0], False)
       symb1 = symb(instruction[1])
       variable[var[0]][var[1]] = ["string", symb1[0]]
 
