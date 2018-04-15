@@ -95,8 +95,7 @@ for($i = 0; $i < $N; $i++){
   }
 
   // execute parse.php, store XML
-  exec("cat '$test[$i]' | php5.6 '$parse' 2>/dev/null", $shell, $retcode);
-  fwrite($temp1, implode("\n", $shell)."\n");
+  exec("cat '$test[$i]' | php5.6 '$parse' 1>$source 2>/dev/null", $shell, $retcode);
 
   // clear shell output
   $shell = [];
@@ -106,12 +105,6 @@ for($i = 0; $i < $N; $i++){
 
     // execute interpret.py, store output
     exec("echo '$stdin' | python3.6 '$int' --source='$source' 1>$stdout 2>/dev/null", $shell, $retcode);
-    //if(!count($shell)) $write = NULL;
-    //else $write = implode("\n", $shell)."\n";
-    //echo "'".$write."'<br>";
-    //fwrite($temp2, implode("\n", $shell)."\n");
-    //if(count($shell)) fwrite($temp2, implode("\n", $shell)."\n");
-    //fwrite($temp2, $write);
 
     // diff
     if($retcode != $retval || shell_exec("diff '$stdout' '$sample'") != ""){
