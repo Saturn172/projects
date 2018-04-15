@@ -32,6 +32,7 @@ if(isset($opt["help"])){
 
 if(isset($opt["directory"])){
   $path = $opt["directory"];
+  if(substr($path, strlen($path) - 1) != "/") $path = $path."/";
 } else {
   $path = ".";
 }
@@ -54,12 +55,13 @@ if(isset($opt["int-script"])){
   $int = "./interpret.py";
 }
 
-$test = explode("\n", shell_exec("find $path/ -name '*.src' $rec 2>/dev/null"));
+$test = explode("\n", shell_exec("find $path -name '*.src' $rec 2>/dev/null"));
 $N = count($test) - 1;
 
 $errors = 0;
 $failed = [];
 
+// execute all tests
 for($i = 0; $i < $N; $i++){
   // file for parse.php output
   $temp1 = tmpfile();

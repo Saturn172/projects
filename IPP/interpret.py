@@ -34,8 +34,17 @@ label = {}
 call = []
 data = []
 
-# fill a database of labels
+# check validity of XML file and fill a database of labels
 for instruction in program:
+  if instruction.tag != "instruction":
+    print("31: Wrong format of XML file!", file=sys.stderr)
+    exit(31)
+  try:
+    instruction.attrib['opcode']
+    instruction.attrib['order']
+  except:
+    print("31: Wrong format of instruction element!", file=sys.stderr)
+    exit(31)
   if instruction.attrib['opcode'] == "LABEL":
     if instruction[0].text in label:
       print("52: Multiple definitions of label '" + instruction[0].text + "'!", file=sys.stderr)
@@ -421,16 +430,22 @@ def execute(code):
     elif instruction.attrib['opcode'] == "READ":
       var = Fvar(instruction[0], False)
       if instruction[1].text == "int":
-        val = input()
         try:
-          int(val)
+          val = int(input())
         except:
           val = "0"
         variable[var[0]][var[1]] = ["int", int(val)]
       elif instruction[1].text == "string":
-        variable[var[0]][var[1]] = ["string", str(input())]
+        try:
+          val = str(input())
+        except:
+          val = ""
+        variable[var[0]][var[1]] = ["string", val]
       elif instruction[1].text == "bool":
-        val = input()
+        try:
+          val = input()
+        except:
+          val = "false"
         if val.lower() == "true":
           variable[var[0]][var[1]] = ["bool", "true"]
         else:
